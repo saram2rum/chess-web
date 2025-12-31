@@ -1,0 +1,166 @@
+/* style.css */
+
+/* 1. 배경 및 레이아웃 */
+body {
+    font-family: sans-serif;
+    background-color: #1a1a1a;
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+/* 2. 체스판 액자 */
+#board-frame {
+    padding: 0;
+    display: inline-block;
+    border-radius: 12px;
+    border: 15px solid #444;
+    transition: border-color 0.6s ease, box-shadow 0.6s ease;
+    box-shadow: 0 0 50px rgba(0,0,0,0.8);
+}
+#board-frame.turn-white {
+    border-color: #ffb700 !important;
+    box-shadow: 0 0 60px rgba(255, 183, 0, 0.5) !important;
+}
+#board-frame.turn-black {
+    border-color: #a8c0ff !important;
+    box-shadow: 0 0 60px rgba(168, 192, 255, 0.5) !important;
+}
+
+/* 3. 체스판 */
+.chess-board { border-collapse: collapse; margin: 0; }
+.chess-board td {
+    width: 70px; height: 70px;
+    padding: 0;
+    border: none; cursor: default;
+    position: relative;
+    vertical-align: bottom; /* 🚨 기물 바닥 밀착 */
+}
+.white-square { background-color: #ebecd0; }
+.black-square { background-color: #779556; }
+
+/* 4. 기물 이미지 */
+.piece-img {
+    width: 100%;
+    height: 100%;
+    display: block; /* 하단 공백 제거 */
+    cursor: pointer;
+}
+
+/* 5. 효과 (선택, 이동 등) - 업그레이드됨 */
+
+.my-piece { cursor: pointer !important; }
+
+.selected {
+    background-color: #f7f769 !important;
+    box-shadow: none !important;
+}
+
+.target-square {
+    position: relative;
+    cursor: pointer !important;
+}
+
+/* 🟢 [CASE 1] 빈 칸일 때: 귀여운 점 (Dot) */
+/* data-type이 'NONE'인 경우에만 적용 */
+.target-square[data-type="NONE"]::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px; height: 24px;
+    background-color: rgba(0, 0, 0, 0.2); /* 은은한 그림자 색 */
+    border-radius: 50%;
+}
+
+/* 🔴 [CASE 2] 잡을 수 있을 때: 강렬한 고리 (Ring) */
+/* data-type이 'NONE'이 아닌 경우 (즉, 기물이 있는 경우) */
+.target-square:not([data-type="NONE"])::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    box-sizing: border-box;
+
+    /* 두께 7px짜리 고리를 만듭니다 */
+    border: 7px solid rgba(0, 0, 0, 0.2);
+
+    /* 50%를 주면 원형 고리가 되고, 0을 주면 사각형 테두리가 됩니다. */
+    /* 기물은 보통 둥그니까 원형 고리가 제일 예쁩니다. */
+    border-radius: 50%;
+
+    /* (선택사항) 공격이라는 걸 강조하고 싶으면 붉은색 링을 써도 예쁩니다 */
+    /* border-color: rgba(200, 0, 0, 0.4); */
+}
+
+/* 6. 프로모션 팝업 (수정됨: 1:1 크기 매칭) */
+.hidden { display: none !important; }
+
+.promotion-popup {
+    position: absolute;
+    left: 0;
+    width: 100%; /* 칸 너비(70px)에 딱 맞춤 */
+    height: auto;
+    background-color: white;
+    z-index: 5000;
+    display: flex;
+    flex-direction: column;
+    /* 테두리는 유지하되, 박스 크기에 포함시켜서 넘치지 않게 함 */
+    border: 3px solid #d4af37;
+    box-sizing: border-box;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+.promotion-popup button {
+    width: 100%;
+    height: 70px; /* 🚨 핵심: 체스판 칸 높이와 동일하게 설정 */
+    border: none;
+    background: white;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    padding: 0; /* 🚨 핵심: 여백을 없애서 이미지를 키움 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.promotion-popup button img {
+    height: 85%; /* 🚨 핵심: 이미지를 버튼에 거의 꽉 차게 키움 (기존보다 큼) */
+    width: auto;
+    filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.2)); /* 살짝 입체감 */
+}
+
+.promotion-popup button:hover {
+    background-color: #f0d9b5;
+}
+
+/* 닫기 버튼은 조금 작게 유지 (구분을 위해) */
+.promotion-popup .close-btn {
+    height: 40px;
+    background-color: #ffecec;
+    color: #d32f2f;
+    font-size: 18px;
+    font-weight: bold;
+    border-bottom: none;
+}
+
+/* 7. 게임 종료 모달 */
+#game-over-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    display: flex; justify-content: center; align-items: center; z-index: 2000;
+}
+.game-over-content {
+    background-color: #2c2c2c; color: #fff;
+    padding: 50px; border-radius: 20px; text-align: center;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.7); border: 1px solid #444;
+}
+.restart-btn {
+    margin-top: 25px; font-size: 18px; padding: 12px 35px;
+    background-color: #a8c0ff; color: #222; font-weight: bold;
+    border: none; border-radius: 50px; cursor: pointer; transition: all 0.2s;
+}
+.restart-btn:hover { transform: scale(1.05); background-color: #fff; box-shadow: 0 0 15px #a8c0ff; }

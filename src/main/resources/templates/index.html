@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Chess</title>
+
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div id="game-over-modal" class="hidden">
+    <div class="modal-content game-over-content">
+        <h2 id="winner-text" style="font-size: 36px; margin: 0 0 10px 0;"></h2>
+        <p id="game-over-reason" style="color: #aaa; margin-bottom: 20px;">Checkmate</p>
+        <button onclick="restartGame()" class="restart-btn">New Game</button>
+    </div>
+</div>
+
+<div id="board-frame" th:classappend="${turn.toString() == 'WHITE'} ? 'turn-white' : 'turn-black'">
+    <table class="chess-board">
+        <tr th:each="y : ${#numbers.sequence(7, 0, -1)}">
+            <td th:each="x : ${#numbers.sequence(0, 7)}"
+                th:with="pos=${new chess.domain.board.Position(x, y)}, piece=${board.getPiece(pos)}"
+                th:class="${(x + y) % 2 == 0} ? 'black-square' : 'white-square'"
+                th:attr="data-coord=${pos.toString()},
+                data-team=${piece != null ? piece.color : 'NONE'},
+                data-type=${piece != null ? piece.type : 'NONE'}"
+                onclick="onClickSquare(this)">
+            </td>
+        </tr>
+    </table>
+</div>
+
+<div id="turn-data" th:text="${turn}" style="display: none;"></div>
+
+<div style="position: fixed; bottom: 5px; right: 10px; font-size: 10px; color: #666; opacity: 0.5;">
+    Chess pieces by Colin Burnett (Wikipedia) | Sounds by Lichess.org
+</div>
+
+<script src="/js/chess.js"></script>
+
+</body>
+</html>
