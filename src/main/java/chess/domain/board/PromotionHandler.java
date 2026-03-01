@@ -26,7 +26,7 @@ public class PromotionHandler {
             case ROOK: return new Rook(color);
             case BISHOP: return new Bishop(color);
             case KNIGHT: return new Knight(color);
-            default: throw new IllegalArgumentException("폰은 킹이나 폰으로 변신할 수 없습니다.");
+            default: throw new IllegalArgumentException("Pawn cannot promote to king or pawn.");
         }
     }
 }

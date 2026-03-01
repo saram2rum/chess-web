@@ -42,13 +42,13 @@ public enum Direction {
 
         // 1. 제자리 걸음 제외
         if (xDiff == 0 && yDiff == 0) {
-            throw new IllegalArgumentException("제자리로 이동할 수 없습니다.");
+            throw new IllegalArgumentException("Cannot move to the same square.");
         }
 
         // 2. 🚨 [핵심] 직선도 아니고, 대각선도 아니면 "방향 없음" 취급!
         // (x가 0이 아니고 y가 0이 아닌데, x와 y의 길이가 다르면? -> 이상한 각도)
         if (xDiff != 0 && yDiff != 0 && Math.abs(xDiff) != Math.abs(yDiff)) {
-            throw new IllegalArgumentException("유효하지 않은 방향입니다.");
+            throw new IllegalArgumentException("Invalid direction.");
         }
 
         // 3. 여기까지 왔으면 "완벽한 직선"이거나 "완벽한 대각선"임이 보장됨

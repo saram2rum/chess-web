@@ -1,43 +1,187 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Chess</title>
-
+    <title>Chessez</title>
+    <!-- Favicon (White Knight ♘) -->
+    <link rel="icon" type="image/svg+xml" href="/images/w_n.svg">
+    <!-- Google Fonts: Noto Sans KR (상업적 이용 무료) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
+<!-- 홈 (로비) - 가볍고 직관적 -->
+<div id="lobby-modal" class="lobby-modal">
+    <div class="lobby-content">
+        <div class="lobby-header">
+            <span id="nickname-display" class="nickname-value">User</span>
+            <button id="change-nickname-btn" class="nickname-change-btn" title="Change nickname">✎</button>
+        </div>
+        
+        <button id="create-game-btn" class="lobby-btn primary-btn">Create Game</button>
+        
+        <div class="join-row">
+            <input 
+                type="text" 
+                id="room-id-input" 
+                class="room-input" 
+                placeholder="Room code"
+                maxlength="5"
+                style="text-transform: uppercase;"
+                oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')"
+            />
+            <button id="join-game-btn" class="lobby-btn secondary-btn">Join</button>
+        </div>
+        
+        <div id="lobby-status" class="lobby-status hidden"></div>
+    </div>
+</div>
+
+    <!-- 로비 (Waiting Room) - 가볍고 직관적 -->
+    <div id="waiting-room" class="waiting-room hidden">
+        <div class="waiting-room-container">
+            <div class="lobby-top">
+                <button onclick="exitToHome()" class="exit-room-btn" title="Leave">✕</button>
+                <div class="room-code-row" id="room-code-value" onclick="copyRoomCode()" title="Click to copy">
+                    <span id="room-id-text" data-room-id="">-----</span>
+                </div>
+                <button id="refresh-lobby-btn" class="refresh-lobby-btn" title="Refresh">↻</button>
+            </div>
+            
+            <div class="players-row">
+                <div class="player-slot host-card" id="host-card">
+                    <span class="player-name">User 1</span>
+                    <span class="player-status ready">●</span>
+                </div>
+                <div class="player-slot guest-card" id="guest-card">
+                    <span class="player-name">WAITING...</span>
+                    <span class="player-status waiting">○</span>
+                </div>
+            </div>
+            
+            <div class="settings-row">
+                <div class="setting-inline">
+                    <label class="setting-label">Host color</label>
+                    <div class="radio-group">
+                        <label class="radio-label"><input type="radio" name="side" value="WHITE" id="side-white"><span>W</span></label>
+                        <label class="radio-label"><input type="radio" name="side" value="BLACK" id="side-black"><span>B</span></label>
+                        <label class="radio-label"><input type="radio" name="side" value="RANDOM" id="side-random" checked><span>?</span></label>
+                    </div>
+                </div>
+                <div class="setting-inline">
+                    <label class="setting-label">Time</label>
+                    <div class="time-inputs">
+                        <input type="number" id="time-limit" class="time-input" value="10" min="1" max="60" step="1" oninput="if(this.value.length>2)this.value=this.value.slice(0,2);this.value=this.value.replace(/[^0-9]/g,'');">
+                        <span>+</span>
+                        <input type="number" id="time-increment" class="time-input" value="0" min="0" max="60" step="1" oninput="if(this.value.length>2)this.value=this.value.slice(0,2);this.value=this.value.replace(/[^0-9]/g,'');">
+                        <span class="time-unit">min</span>
+                    </div>
+                </div>
+            </div>
+            <p id="settings-note" class="settings-note"></p>
+            
+            <button id="start-game-btn" class="start-btn" disabled>Start Game</button>
+            <p class="start-note">Waiting for opponent</p>
+        </div>
+    </div>
+
+<!-- 닉네임 변경 모달 -->
+<div id="nickname-modal" class="hidden">
+    <div class="modal-content nickname-content">
+        <h3 class="modal-title">CHANGE NICKNAME</h3>
+        <input type="text" id="new-nickname-input" class="nickname-input" maxlength="12" placeholder="Max 12 characters">
+        <div class="modal-actions">
+            <button id="save-nickname-btn" class="modal-btn save">SAVE</button>
+            <button id="cancel-nickname-btn" class="modal-btn cancel">CANCEL</button>
+        </div>
+    </div>
+</div>
+
+<!-- 게임 종료 모달 -->
 <div id="game-over-modal" class="hidden">
     <div class="modal-content game-over-content">
         <h2 id="winner-text" style="font-size: 36px; margin: 0 0 10px 0;"></h2>
         <p id="game-over-reason" style="color: #aaa; margin-bottom: 20px;">Checkmate</p>
-        <button onclick="restartGame()" class="restart-btn">New Game</button>
+        <div class="game-over-actions">
+            <button onclick="returnToLobby()" class="restart-btn">PLAY AGAIN</button>
+            <button onclick="exitToHome()" class="exit-btn">LEAVE</button>
+        </div>
     </div>
 </div>
 
-<div id="board-frame" th:classappend="${turn.toString() == 'WHITE'} ? 'turn-white' : 'turn-black'">
-    <table class="chess-board">
-        <tr th:each="y : ${#numbers.sequence(7, 0, -1)}">
-            <td th:each="x : ${#numbers.sequence(0, 7)}"
-                th:with="pos=${new chess.domain.board.Position(x, y)}, piece=${board.getPiece(pos)}"
-                th:class="${(x + y) % 2 == 0} ? 'black-square' : 'white-square'"
-                th:attr="data-coord=${pos.toString()},
-                data-team=${piece != null ? piece.color : 'NONE'},
-                data-type=${piece != null ? piece.type : 'NONE'}"
-                onclick="onClickSquare(this)">
-            </td>
-        </tr>
-    </table>
+<!-- 체스판 (게임 시작 후) -->
+<div id="board-container" class="board-container hidden">
+    <!-- ⏱️ 상대 타이머 -->
+    <div class="timer-container" style="justify-content: flex-end; width: 600px; margin-bottom: 5px;">
+        <div class="timer timer-top" id="timer-opponent">
+            <!-- 라벨 제거 -->
+            <span class="timer-value">10:00</span>
+        </div>
+    </div>
+    
+    <!-- 체스판 -->
+    <div id="board-frame" class="turn-white">
+        <table class="chess-board" id="chess-board" cellspacing="0" cellpadding="0">
+            <!-- 동적 생성 -->
+        </table>
+    </div>
+    
+    <!-- ⏱️ 내 타이머 -->
+    <div class="timer-container" style="justify-content: flex-end; width: 600px; margin-top: 5px;">
+        <div class="timer timer-bottom" id="timer-me">
+            <!-- 라벨 제거 -->
+            <span class="timer-value">10:00</span>
+        </div>
+    </div>
+    
+    <!-- 🆕 프로모션 선택 UI (체스닷컴 스타일) -->
+    <div id="promotion-overlay" class="promotion-overlay hidden">
+        <div class="promotion-choices">
+            <div class="promotion-piece" data-type="QUEEN">
+                <img src="/images/w_q.svg" alt="Queen">
+            </div>
+            <div class="promotion-piece" data-type="KNIGHT">
+                <img src="/images/w_n.svg" alt="Knight">
+            </div>
+            <div class="promotion-piece" data-type="ROOK">
+                <img src="/images/w_r.svg" alt="Rook">
+            </div>
+            <div class="promotion-piece" data-type="BISHOP">
+                <img src="/images/w_b.svg" alt="Bishop">
+            </div>
+            <div class="promotion-cancel" data-type="CANCEL">
+                <span>✕</span>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div id="turn-data" th:text="${turn}" style="display: none;"></div>
-
-<div style="position: fixed; bottom: 5px; right: 10px; font-size: 10px; color: #666; opacity: 0.5;">
-    Chess pieces by Colin Burnett (Wikipedia) | Sounds by Lichess.org
+<div id="attribution-footer" style="position: fixed; bottom: 8px; right: 12px; font-size: 11px; color: rgba(255,255,255,0.5); z-index: 100; pointer-events: none;">
+    Pieces: Colin Burnett | Sounds: Lichess.org (AGPLv3+) | Move hints: chess.js (BSD-2-Clause)
 </div>
 
-<script src="/js/chess.js"></script>
+<!-- 🆕 재접속/로딩 오버레이 -->
+<div id="reconnect-overlay" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9000; display:flex; justify-content:center; align-items:center; flex-direction:column;">
+    <div style="color:var(--text-primary); font-size:24px; font-weight:700; margin-bottom:15px;">RECONNECTING...</div>
+    <div style="color:var(--text-secondary); font-size:14px;">Please wait while we restore your session.</div>
+</div>
+
+<!-- WebSocket 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<!-- chess.js: 유효 이동 하이라이트 (BSD-2-Clause) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<!-- Chess Application Modules (Load Order Important) -->
+<script src="/js/modules/common.js?v=2"></script>
+<script src="/js/modules/chess-helper.js?v=2"></script>
+<script src="/js/modules/ui.js?v=2"></script>
+<script src="/js/modules/board.js?v=2"></script>
+<script src="/js/modules/network.js?v=2"></script>
+<script src="/js/modules/game.js?v=2"></script>
+<script src="/js/modules/main.js?v=2"></script>
 
 </body>
 </html>

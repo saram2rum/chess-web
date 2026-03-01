@@ -29,13 +29,13 @@ public class CastlingHandler {
 
         // 3. 룩이 없거나, 룩이 아니거나, 이미 움직였으면 실패!
         if (rook == null || !rook.is(Type.ROOK) || !rook.isFirstMove()) {
-            throw new IllegalArgumentException("캐슬링을 할 수 있는 룩이 없습니다! (이미 움직였거나 없음)");
+            throw new IllegalArgumentException("No rook available for castling (already moved or missing).");
         }
 
         // 4. 킹과 룩 사이의 경로가 비어있는지 확인
         for (int x = source.getX() + direction; x != rookX; x += direction) {
             if (pieces.containsKey(new Position(x, source.getY()))) {
-                throw new IllegalArgumentException("킹과 룩 사이에 다른 기물이 있어서 캐슬링 불가! 🚧");
+                throw new IllegalArgumentException("Cannot castle: piece in the way between king and rook.");
             }
         }
     }

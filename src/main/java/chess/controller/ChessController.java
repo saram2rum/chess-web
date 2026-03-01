@@ -2,7 +2,6 @@ package chess.controller;
 
 import chess.domain.game.ChessGame;
 import chess.domain.piece.Type;
-import chess.domain.piece.Color;
 import chess.domain.piece.Piece;
 import chess.domain.board.Position;
 
@@ -62,16 +61,17 @@ public class ChessController {
             response.put("code", "SUCCESS");
             response.put("turn", chessGame.getCurrentTurn());
 
-            // 🆕 [승패 확인] 게임이 끝났나요?
+            // [승패 확인] 게임 종료 시 winner + endReason 통일
             if (!chessGame.isRunning()) {
                 response.put("gameOver", true);
-                // 50수 무승부인 경우 winner는 null
-                if (chessGame.isFiftyMoveDraw()) {
+                if (chessGame.isDraw()) {
                     response.put("winner", "DRAW");
+                    response.put("endReason", chessGame.getDrawReason());
                 } else {
-                    // 현재 턴인 사람이 체크메이트 당한 것이므로, 승자는 그 반대편!
-                    String winner = chessGame.getCurrentTurn().isWhite() ? "BLACK" : "WHITE";
+                    // 체크메이트 시 getCurrentTurn=방금 둔 사람(승자)
+                    String winner = chessGame.getCurrentTurn().toString();
                     response.put("winner", winner);
+                    response.put("endReason", "Checkmate");
                 }
             } else {
                 response.put("gameOver", false);
@@ -99,7 +99,7 @@ public class ChessController {
 
         } catch (IllegalArgumentException e) {
             response.put("code", "ERROR");
-            response.put("message", "잘못된 요청입니다.");
+            response.put("message", "Invalid request.");
         } catch (Exception e) {
             response.put("code", "ERROR");
             response.put("message", e.getMessage());

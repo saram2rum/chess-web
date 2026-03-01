@@ -48,10 +48,13 @@ modification, are permitted provided that the following conditions are met:
    specific prior written permission.
 -----------------------------------------------------------------------
 
-2. AUDIO ASSETS
+2. AUDIO ASSETS (SFX Sound Pack)
 -----------------------------------------------------------------------
-Description: Standard Chess Sound Set (Move, Capture)
+Description: Chess sound effects (Move, Capture, Check, Checkmate,
+             Victory, Defeat, Draw, Error, LowTime)
+Author: Enigmahack (https://github.com/Enigmahack)
 Source: Lichess.org (https://github.com/lichess-org/lila)
-License: Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0)
+        public/sound/sfx/
+License: GNU Affero General Public License v3 or later (AGPLv3+)
 Copyright (C) Lichess.org and contributors
 -----------------------------------------------------------------------

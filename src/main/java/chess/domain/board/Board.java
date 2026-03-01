@@ -17,6 +17,10 @@ public class Board {
     
     // 앙파상: 상대 폰이 2칸 이동했을 때 잡을 수 있는 위치
     private Position enPassantTarget = null;
+    /** 앙파상 시 잡힌 폰 위치 (프론트엔드용, move 직후에만 유효) */
+    private Position lastEnPassantCapturedPosition = null;
+    /** 마지막 수가 포획(일반+앙파상)였는지 */
+    private boolean lastMoveWasCapture = false;
     
     // 50수 무승부 규칙: 폰 이동이나 기물 포획이 없이 지난 수
     private int halfMoveClock = 0;
@@ -36,6 +40,16 @@ public class Board {
 
     public Position getEnPassantTarget() {
         return enPassantTarget;
+    }
+
+    /** 앙파상 직후에만 유효. 잡힌 폰의 위치 (e.g. "f5") */
+    public Position getLastEnPassantCapturedPosition() {
+        return lastEnPassantCapturedPosition;
+    }
+
+    /** 마지막 수가 포획이었는지 (일반 포획 또는 앙파상) */
+    public boolean isLastMoveCapture() {
+        return lastMoveWasCapture;
     }
 
     /**
@@ -93,7 +107,7 @@ public class Board {
     private Piece findPiece(Position position) {
         Piece piece = pieces.get(position);
         if (piece == null) {
-            throw new IllegalArgumentException("해당 위치에는 기물이 없습니다.");
+            throw new IllegalArgumentException("No piece at that position.");
         }
         return piece;
     }
@@ -103,11 +117,13 @@ public class Board {
     }
 
     public void move(Position source, Position target, Color currentTurn, Type promotionType) {
+        lastEnPassantCapturedPosition = null;
+        lastMoveWasCapture = false;
         Piece sourcePiece = findPiece(source);
 
         // 1. 턴 검증
         if (sourcePiece.getColor() != currentTurn) {
-            throw new IllegalArgumentException("상대방의 기물은 건드릴 수 없습니다!");
+            throw new IllegalArgumentException("Cannot move opponent's piece!");
         }
 
         // 앙파상 타겟 업데이트 (매 턴마다)
@@ -115,7 +131,7 @@ public class Board {
 
         // 2. 기본 이동 규칙 검증
         if (!moveValidator.isValidMove(source, target)) {
-            throw new IllegalArgumentException("그 기물은 거기로 갈 수 없습니다! 규칙 위반 삐-! 🚨");
+            throw new IllegalArgumentException("Illegal move: rule violation.");
         }
 
         // 3. 자살수 방지 검증
@@ -131,7 +147,7 @@ public class Board {
 
         GameRuleChecker ruleChecker = createGameRuleChecker();
         if (!ruleChecker.isMoveSafe(source, target, newWhiteKingPos, newBlackKingPos)) {
-            throw new IllegalArgumentException("왕이 체크 상태에 빠지게 되는 수는 둘 수 없습니다! 🛡️");
+            throw new IllegalArgumentException("Cannot move: king would be in check.");
         }
 
         // 4. 캐슬링 검증 및 처리
@@ -156,12 +172,14 @@ public class Board {
                            enPassantTarget.getY() - 1 :  // 백색이 위로 가면 타겟 아래
                            enPassantTarget.getY() + 1;    // 흑색이 아래로 가면 타겟 위
             Position capturedPawnPos = new Position(enPassantTarget.getX(), capturedY);
+            lastEnPassantCapturedPosition = capturedPawnPos;
             pieces.remove(capturedPawnPos);
             System.out.println(">>> ⚔️ 앙파상! " + capturedPawnPos + "의 폰이 잡혔습니다.");
         }
 
         // 6. 기물 이동
         Piece capturedPiece = pieces.get(target);
+        lastMoveWasCapture = (capturedPiece != null || isEnPassant);
         pieces.put(target, sourcePiece);
         pieces.remove(source);
         sourcePiece.moved();
@@ -240,5 +258,16 @@ public class Board {
 
     public int getHalfMoveClock() {
         return halfMoveClock;
+    }
+
+    /** 프론트엔드용 표시 데이터 (coord → "WHITE_KING" 등), 파싱 없이 바로 DOM 반영 */
+    public Map<String, String> getBoardSnapshot() {
+        Map<String, String> snapshot = new HashMap<>();
+        for (var e : pieces.entrySet()) {
+            Piece p = e.getValue();
+            String key = p.getColor().toString() + "_" + p.getType().toString();
+            snapshot.put(e.getKey().toString(), key);
+        }
+        return snapshot;
     }
 }

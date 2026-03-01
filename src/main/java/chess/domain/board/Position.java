@@ -18,7 +18,7 @@ public class Position {
     // 1. 문자열 생성자 ("e2")
     public Position(String uiPosition) {
         if (uiPosition == null || uiPosition.length() != 2) {
-            throw new IllegalArgumentException("위치 입력은 'e2' 같은 2글자여야 합니다.");
+            throw new IllegalArgumentException("Position must be 2 characters (e.g. 'e2').");
         }
 
         String lowerPosition = uiPosition.toLowerCase();
@@ -44,7 +44,7 @@ public class Position {
     // 🔒 검증 로직을 한곳에 모음 (중복 제거)
     private void validate(int x, int y) {
         if (x < 0 || x > 7 || y < 0 || y > 7) {
-            throw new IllegalArgumentException("체스판 범위를 벗어났습니다. x:" + x + ", y:" + y);
+            throw new IllegalArgumentException("Position out of board range: x:" + x + ", y:" + y);
         }
     }
 
