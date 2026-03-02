@@ -22,6 +22,7 @@
         </div>
         
         <button id="create-game-btn" class="lobby-btn primary-btn">Create Game</button>
+        <button id="play-vs-ai-btn" class="lobby-btn ai-primary-btn">Play vs AI</button>
         
         <div class="join-row">
             <input 
@@ -88,6 +89,34 @@
         </div>
     </div>
 
+<!-- AI 대전 설정 모달 -->
+<div id="ai-settings-modal" class="modal-overlay hidden">
+    <div class="modal-content ai-settings-content">
+        <h3 class="modal-title">PLAY VS AI</h3>
+        <div class="ai-setting-row">
+            <label class="setting-label">Difficulty</label>
+            <div class="radio-group ai-difficulty">
+                <label class="radio-label"><input type="radio" name="ai-difficulty" value="0" data-movetime="300"><span>Easy</span></label>
+                <label class="radio-label"><input type="radio" name="ai-difficulty" value="6" data-movetime="500" checked><span>Normal</span></label>
+                <label class="radio-label"><input type="radio" name="ai-difficulty" value="10" data-movetime="800"><span>Hard</span></label>
+                <label class="radio-label"><input type="radio" name="ai-difficulty" value="20" data-movetime="800"><span>Impossible</span></label>
+            </div>
+        </div>
+        <div class="ai-setting-row">
+            <label class="setting-label">Your color</label>
+            <div class="radio-group ai-color">
+                <label class="radio-label"><input type="radio" name="ai-color" value="WHITE"><span>White</span></label>
+                <label class="radio-label"><input type="radio" name="ai-color" value="BLACK"><span>Black</span></label>
+                <label class="radio-label"><input type="radio" name="ai-color" value="RANDOM" checked><span>Random</span></label>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button id="ai-start-btn" class="modal-btn save">START</button>
+            <button id="ai-cancel-btn" class="modal-btn cancel">CANCEL</button>
+        </div>
+    </div>
+</div>
+
 <!-- 닉네임 변경 모달 -->
 <div id="nickname-modal" class="hidden">
     <div class="modal-content nickname-content">
@@ -112,13 +141,27 @@
     </div>
 </div>
 
-<!-- 체스판 (게임 시작 후) -->
-<div id="board-container" class="board-container hidden">
-    <!-- ⏱️ 상대 타이머 -->
-    <div class="timer-container" style="justify-content: flex-end; width: 600px; margin-bottom: 5px;">
-        <div class="timer timer-top" id="timer-opponent">
-            <!-- 라벨 제거 -->
-            <span class="timer-value">10:00</span>
+<!-- 게임 영역 (1v1 + AI 공통) -->
+<div id="game-area" class="game-area hidden">
+    <!-- 🤖 AI 모드: 상단 헤더 (보드 밖) -->
+    <div id="ai-header" class="ai-header hidden">
+        <span class="ai-header-title">vs AI</span>
+        <button id="ai-leave-btn" class="ai-leave-btn" onclick="exitAIToHome()" title="Leave">✖ Leave</button>
+    </div>
+    <!-- 체스판 -->
+    <div id="board-container" class="board-container">
+    <!-- 상대 영역: 잡은 기물 + 점수 + 타이머 (가로 1줄) -->
+    <div class="info-row info-row-top">
+        <div class="info-row-left">
+            <div class="captured-pieces" id="captured-opponent"></div>
+            <span class="material-badge" id="material-opponent"></span>
+        </div>
+        <div class="info-row-right">
+            <div class="timer-container">
+                <div class="timer timer-top" id="timer-opponent">
+                    <span class="timer-value">10:00</span>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -129,11 +172,19 @@
         </table>
     </div>
     
-    <!-- ⏱️ 내 타이머 -->
-    <div class="timer-container" style="justify-content: flex-end; width: 600px; margin-top: 5px;">
-        <div class="timer timer-bottom" id="timer-me">
-            <!-- 라벨 제거 -->
-            <span class="timer-value">10:00</span>
+    <!-- 내 영역: 잡은 기물 + 점수 + 타이머/Undo (가로 1줄) -->
+    <div class="info-row info-row-bottom">
+        <div class="info-row-left">
+            <div class="captured-pieces" id="captured-me"></div>
+            <span class="material-badge" id="material-me"></span>
+        </div>
+        <div class="info-row-right">
+            <div class="timer-container">
+                <div class="timer timer-bottom" id="timer-me">
+                    <span class="timer-value">10:00</span>
+                </div>
+            </div>
+            <button id="ai-undo-btn" class="ai-undo-btn" onclick="undoAIMove()" title="Undo last move" disabled>↩ Undo</button>
         </div>
     </div>
     
@@ -157,7 +208,8 @@
             </div>
         </div>
     </div>
-</div>
+    </div><!-- /board-container -->
+</div><!-- /game-area -->
 
 <div id="attribution-footer" style="position: fixed; bottom: 8px; right: 12px; font-size: 11px; color: rgba(255,255,255,0.5); z-index: 100; pointer-events: none;">
     Pieces: Colin Burnett | Sounds: Lichess.org (AGPLv3+) | Move hints: chess.js (BSD-2-Clause)
@@ -181,6 +233,7 @@
 <script src="/js/modules/board.js?v=2"></script>
 <script src="/js/modules/network.js?v=2"></script>
 <script src="/js/modules/game.js?v=2"></script>
+<script src="/js/modules/ai-game.js?v=2"></script>
 <script src="/js/modules/main.js?v=2"></script>
 
 </body>

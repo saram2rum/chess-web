@@ -110,3 +110,112 @@ function getLegalMovesFromChess(square) {
 function isChessReady() {
     return chessGame !== null && typeof Chess !== 'undefined';
 }
+
+// ============================================
+// 잡은 기물 + 점수 차이 (Material)
+// 체스판과 동일한 PIECE_IMAGES 경로 사용
+// ============================================
+const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+const INITIAL_COUNTS = { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 };
+const FEN_TO_TYPE = { p: 'PAWN', n: 'KNIGHT', b: 'BISHOP', r: 'ROOK', q: 'QUEEN', k: 'KING' };
+
+/** chessGame.board()에서 각 진영별 기물 개수 추출 */
+function getPieceCountsFromChess() {
+    const counts = { w: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 } };
+    if (!chessGame) return counts;
+    const board = chessGame.board();
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const p = board[r]?.[c];
+            if (p && p.type && counts[p.color]) {
+                counts[p.color][p.type] = (counts[p.color][p.type] || 0) + 1;
+            }
+        }
+    }
+    return counts;
+}
+
+/** 잡힌 기물: initial - current (각 진영이 잃은 기물) */
+function getCapturedPieces(counts) {
+    const captured = { w: [], b: [] };
+    for (const color of ['w', 'b']) {
+        for (const [type, initial] of Object.entries(INITIAL_COUNTS)) {
+            const current = counts[color][type] ?? 0;
+            const lost = Math.max(0, initial - current);
+            for (let i = 0; i < lost; i++) {
+                captured[color].push(type);
+            }
+        }
+    }
+    return captured;
+}
+
+/** 머티리얼 점수 (K 제외) */
+function getMaterialScore(counts) {
+    let score = 0;
+    for (const [type, val] of Object.entries(PIECE_VALUES)) {
+        if (type === 'k') continue;
+        score += (counts.w[type] ?? 0) * val;
+        score -= (counts.b[type] ?? 0) * val;
+    }
+    return score; // >0 = White 유리, <0 = Black 유리
+}
+
+/** 잡은 기물 UI + 점수 차이 갱신 (1v1/AI 공통) */
+function updateCapturedPiecesUI() {
+    if (typeof myColor === 'undefined') return;
+    const counts = getPieceCountsFromChess();
+    const captured = getCapturedPieces(counts);
+    const materialDiff = getMaterialScore(counts);
+
+    // 상대가 잡은 기물 = 내가 잃은 기물 (내 색 아이콘)
+    const opponentCaptured = captured[myColor === 'WHITE' ? 'w' : 'b'];
+    // 내가 잡은 기물 = 상대가 잃은 기물 (상대 색 아이콘)
+    const myCaptured = captured[myColor === 'WHITE' ? 'b' : 'w'];
+
+    const oppPrefix = myColor === 'WHITE' ? 'w' : 'b';
+    const myCapPrefix = myColor === 'WHITE' ? 'b' : 'w';
+
+    const oppEl = document.getElementById('captured-opponent');
+    const myEl = document.getElementById('captured-me');
+    const oppBadge = document.getElementById('material-opponent');
+    const myBadge = document.getElementById('material-me');
+
+    const renderPieces = (list, colorPrefix) => {
+        const frag = document.createDocumentFragment();
+        const colorKey = colorPrefix === 'w' ? 'WHITE' : 'BLACK';
+        list.forEach(t => {
+            const key = colorKey + '_' + (FEN_TO_TYPE[t] || 'PAWN');
+            const src = typeof PIECE_IMAGES !== 'undefined' ? PIECE_IMAGES[key] : `/images/${colorPrefix}_${t}.svg`;
+            const div = document.createElement('div');
+            div.className = 'captured-piece';
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = t;
+            img.className = 'captured-piece-img';
+            div.appendChild(img);
+            frag.appendChild(div);
+        });
+        return frag;
+    };
+
+    if (oppEl) {
+        oppEl.innerHTML = '';
+        oppEl.appendChild(renderPieces(opponentCaptured, oppPrefix));
+    }
+    if (myEl) {
+        myEl.innerHTML = '';
+        myEl.appendChild(renderPieces(myCaptured, myCapPrefix));
+    }
+
+    // 점수 차이: 유리한 쪽에만 표시
+    const myAdvantage = myColor === 'WHITE' ? materialDiff : -materialDiff;
+    if (oppBadge) {
+        oppBadge.textContent = myAdvantage < 0 ? '+' + (-myAdvantage) : '';
+        oppBadge.classList.toggle('empty', myAdvantage >= 0);
+    }
+    if (myBadge) {
+        myBadge.textContent = myAdvantage > 0 ? '+' + myAdvantage : '';
+        myBadge.classList.toggle('empty', myAdvantage <= 0);
+    }
+}

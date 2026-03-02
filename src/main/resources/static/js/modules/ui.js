@@ -72,11 +72,13 @@ function showLobbyStatus(message, type) {
 }
 
 function showWaitingRoom(lobbyState) {
-    // 🆕 로딩 완료되었으므로 오버레이 숨김
     const overlay = document.getElementById('reconnect-overlay');
     if (overlay) overlay.classList.add('hidden');
 
-    // 🔥 [핵심] 게임이 이미 시작되었다면 대기실을 보여주지 않음
+    if (isAIMode) {
+        console.log('⚠️ [UI] AI 대전 중 - 대기실 전환 차단');
+        return;
+    }
     if (isGameRunning) {
         console.log('⚠️ [UI] 게임 진행 중이므로 대기실 화면 전환 차단');
         return;
@@ -91,11 +93,10 @@ function showWaitingRoom(lobbyState) {
         lobbyModal.style.display = 'none'; // 이중 안전장치
     }
     
-    // 🔧 [수정] 게임 보드 숨기기 (로비 복귀 시 확실하게)
-    const boardContainer = document.getElementById('board-container');
-    if (boardContainer) {
-        boardContainer.classList.add('hidden');
-        boardContainer.style.display = '';  // inline style 제거 (CSS 기본값 복구)
+    // 🔧 [수정] 게임 영역 숨기기 (로비 복귀 시 확실하게)
+    const gameArea = document.getElementById('game-area');
+    if (gameArea) {
+        gameArea.classList.add('hidden');
     }
     
     // 🔧 [수정] 게임 오버 모달 숨기기 (잔존물 제거)
@@ -310,6 +311,10 @@ function showGameOverModal(result) {
 }
 
 function returnToLobby() {
+    if (isAIMode) {
+        exitAIToHome();
+        return;
+    }
     if (stompClient && stompClient.connected && roomId) {
         console.log('📤 로비 복귀 (Play Again)');
         
@@ -318,13 +323,13 @@ function returnToLobby() {
         isGameRunning = false;
         selectedSquare = null;
         
-        // 게임 보드 숨기기
-        const boardContainer = document.getElementById('board-container');
-        if (boardContainer) {
-            boardContainer.classList.add('hidden');
-            boardContainer.style.display = '';
-            boardContainer.classList.remove('flipped');
+        // 게임 영역 숨기기
+        const gameArea = document.getElementById('game-area');
+        if (gameArea) {
+            gameArea.classList.add('hidden');
         }
+        const boardContainer = document.getElementById('board-container');
+        if (boardContainer) boardContainer.classList.remove('flipped');
         
         // 게임 오버 모달 닫기
         const gameOverModal = document.getElementById('game-over-modal');
@@ -433,18 +438,20 @@ function goToHomeScreen() {
     if (lobbyModal) { lobbyModal.classList.remove('hidden'); lobbyModal.style.display = 'flex'; }
     const waitingRoom = document.getElementById('waiting-room');
     if (waitingRoom) { waitingRoom.classList.add('hidden'); waitingRoom.style.display = 'none'; }
-    const boardContainer = document.getElementById('board-container');
-    if (boardContainer) boardContainer.classList.add('hidden');
+    const gameArea = document.getElementById('game-area');
+    if (gameArea) gameArea.classList.add('hidden');
 }
 
 /**
  * 🆕 홈으로 나가기 (페이지 리로드로 깔끔하게 초기화)
  */
 function exitToHome() {
+    if (isAIMode) {
+        exitAIToHome();
+        return;
+    }
     if (confirm('Are you sure you want to leave the room?')) {
-        // 🆕 네트워크 모듈에 위임
         leaveGame();
-        
-        window.location.href = '/'; 
+        window.location.href = '/';
     }
 }

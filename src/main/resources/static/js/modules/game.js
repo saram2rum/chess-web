@@ -44,6 +44,9 @@ function generateUUID() {
 function initializeLobbyButtons() {
     document.getElementById('create-game-btn').addEventListener('click', createGame);
     document.getElementById('join-game-btn').addEventListener('click', joinGameFromInput);
+    document.getElementById('play-vs-ai-btn').addEventListener('click', openAISettingsModal);
+    document.getElementById('ai-start-btn').addEventListener('click', handleAIStartClick);
+    document.getElementById('ai-cancel-btn').addEventListener('click', closeAISettingsModal);
     
     const roomInput = document.getElementById('room-id-input');
     
@@ -80,9 +83,10 @@ function handleReconnect(gameState) {
     document.getElementById('waiting-room').classList.add('hidden');
     document.getElementById('lobby-modal').classList.add('hidden');
     
-    // 2. 체스판 표시
+    // 2. 게임 영역 + 체스판 표시
+    const gameArea = document.getElementById('game-area');
+    if (gameArea) gameArea.classList.remove('hidden');
     const boardContainer = document.getElementById('board-container');
-    boardContainer.classList.remove('hidden');
     
     // 3. 방 정보 표시
     const roomIdEl = document.getElementById('game-room-id');
@@ -124,6 +128,7 @@ function handleReconnect(gameState) {
             syncChessFromSnapshot(gameState.boardState, gameState.currentTurn);
         }
     }
+    if (typeof updateCapturedPiecesUI === 'function') updateCapturedPiecesUI();
     
     console.log('✅ 재접속 완료 - 게임 상태 복원됨');
     alert('🔄 Reconnected to the game!');
@@ -162,6 +167,7 @@ function startGameMode(hostColor, guestColor) {
     // 2. 화면 전환 (강제 실행)
     const lobbyModal = document.getElementById('lobby-modal');
     const waitingRoom = document.getElementById('waiting-room');
+    const gameArea = document.getElementById('game-area');
     const boardContainer = document.getElementById('board-container');
     
     // 모든 모달 숨기기
@@ -174,12 +180,12 @@ function startGameMode(hostColor, guestColor) {
         waitingRoom.style.display = 'none';
     }
     
-    // 게임 보드 표시
-    if (boardContainer) {
-        boardContainer.classList.remove('hidden');
-        boardContainer.style.display = 'flex'; // flex로 강제 설정
+    // 게임 영역 표시 (1v1: ai-header는 숨김 유지)
+    if (gameArea && boardContainer) {
+        gameArea.classList.remove('hidden');
+        boardContainer.style.display = 'flex';
     } else {
-        console.error('❌ board-container 요소를 찾을 수 없습니다!');
+        console.error('❌ game-area 또는 board-container 요소를 찾을 수 없습니다!');
         return;
     }
     
@@ -210,6 +216,7 @@ function startGameMode(hostColor, guestColor) {
     
     // 5. 턴 표시 및 완료 로그
     updateTurnDisplay();
+    if (typeof updateCapturedPiecesUI === 'function') updateCapturedPiecesUI();
     console.log('✅ 게임 화면 전환 완료');
 }
 
@@ -221,9 +228,20 @@ function sendMove(source, target) {
     
     const pieceType = sourceCell.getAttribute('data-type');
     const pieceTeam = sourceCell.getAttribute('data-team');
-    
-    // 🆕 폰 승급 체크
     const targetY = parseInt(target[1]);
+    
+    // 🤖 AI 모드: 1v1 로직 건너뛰고 AI 전용 처리
+    if (isAIMode) {
+        const needsPromotion = pieceType === 'PAWN' && (targetY === 8 || targetY === 1);
+        if (needsPromotion) {
+            showPromotionDialog(source, target, pieceTeam);
+        } else {
+            handleAIUserMove(source, target, null);
+        }
+        return;
+    }
+    
+    // 🆕 폰 승급 체크 (1v1)
     const needsPromotion = pieceType === 'PAWN' && (targetY === 8 || targetY === 1);
     
     if (needsPromotion) {
@@ -281,15 +299,17 @@ function showPromotionDialog(source, target, team) {
         if (choice === 'CANCEL') {
             console.log('   ❌ 승급 취소');
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            // 취소 시 선택 해제
             clearMoveSelection();
+            return;
+        }
+        
+        if (isAIMode) {
+            handleAIUserMove(source, target, choice);
             return;
         }
         
         console.log('   📤 서버에 이동 + 승급 요청 전송');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
-        // 승급 기물과 함께 이동
         executiveMove(source, target, choice);
     };
     
@@ -373,6 +393,7 @@ function handleMoveResult(result) {
     currentTurn = result.nextTurn;
     updateTurnDisplay();
     refreshBoardState(); // 내 기물 표시 갱신
+    if (typeof updateCapturedPiecesUI === 'function') updateCapturedPiecesUI();
     
     // ⏱️ 서버 타이머 동기화 (이동 시마다)
     if (result.whiteTime != null && result.blackTime != null) {

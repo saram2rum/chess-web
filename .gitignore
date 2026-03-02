@@ -1,6 +1,11 @@
 HELP.md
 .gradle
+.gradle/
 build/
+venv/
+
+# AWS EC2 키 파일 (절대 GitHub에 올리지 않음)
+*.pem
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/

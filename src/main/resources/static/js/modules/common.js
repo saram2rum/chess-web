@@ -62,6 +62,13 @@ let lastOptimisticMove = null;  // { source, target } | null
 // ⏱️ LowTime 소리 1회 재생 (30초 미만 진입 시)
 let lowTimeSoundPlayed = false;
 
+// 🤖 AI 대전 모드 (1v1과 완전 분리)
+let isAIMode = false;
+let aiColor = null;       // AI 진영 (WHITE or BLACK)
+let aiSkillLevel = 10;    // 0~20
+let aiMovetimeMs = 2000;  // 수당 계산 시간(ms), 난이도별 효율 조절용
+let aiGameThinking = false;  // AI가 수 계산 중이면 true → 무르기 차단용
+
 // ============================================
 // 3. Room ID Storage (재접속 지원)
 // ============================================
