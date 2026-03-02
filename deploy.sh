@@ -93,5 +93,5 @@ ENDSSH
 echo "✨ Deployment finished!"
 echo ""
 echo "📌 다음 단계:"
-echo "   - Nginx: config/nginx/chessez.conf → DEPLOY_GUIDE.md"
-echo "   - HTTPS: SSL_HTTPS_GUIDE.md"
+echo "   - Nginx: config/nginx/chessez.conf → docs/guides/DEPLOY_GUIDE.md"
+echo "   - HTTPS: docs/guides/SSL_HTTPS_GUIDE.md"
