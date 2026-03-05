@@ -23,21 +23,21 @@
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Nginx (80/443)                            │
-│  /ai/* → FastAPI(8000)  │  나머지 → Spring Boot(8080)             │
+│  /ai/*, 나머지 전부 → Spring Boot(8080)                           │
 └─────────────────────────────────────────────────────────────────┘
-         │                                    │
-         ▼                                    ▼
-┌─────────────────────┐            ┌─────────────────────────────┐
-│  FastAPI (Python)    │            │  Spring Boot (Java 17)      │
-│  ai_server/          │            │  WebSocket, 1v1 게임 로직    │
-│  Stockfish 엔진     │            │  GameRoom, ChessService     │
-│  /ai/get-move       │            │  /ws-chess                 │
-└─────────────────────┘            └─────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────┐     ──→  ┌─────────────────────┐
+│  Spring Boot (Java 17)       │         │  FastAPI (Python)    │
+│  API Gateway, 1v1 로직       │         │  ai_server/          │
+│  AiProxyController → /ai/*   │         │  Stockfish 엔진     │
+│  WebSocket /ws-chess         │         └─────────────────────┘
+└─────────────────────────────┘
 ```
 
-- **Java (Spring Boot)**: 1v1 로비, WebSocket 게임, HTTP 페이지 서빙
-- **Python (FastAPI)**: AI 수 계산, Stockfish 연동
-- **Nginx**: 리버스 프록시, `/ai/*` → 8000, 나머지 → 8080, SSL 종료
+- **Java (Spring Boot)**: API Gateway(모든 요청 경유), 1v1 로비, WebSocket
+- **Python (FastAPI)**: AI 계산(Stockfish 래퍼), Spring이 프록시로 호출
+- **Nginx**: 전체 → 8080, Spring이 /ai/*를 FastAPI(8000)로 프록시
 
 ---
 

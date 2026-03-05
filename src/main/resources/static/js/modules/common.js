@@ -64,10 +64,16 @@ let lowTimeSoundPlayed = false;
 
 // 🤖 AI 대전 모드 (1v1과 완전 분리)
 let isAIMode = false;
+let evalBarEnabled = false;  // 1v1 형세분석 바 표시 여부 (startGameMode에서 true, returnToLobby에서 false)
+let currentMoveSequence = 0; // eval 순서 보장 (오래된 eval 덮어쓰기 방지)
 let aiColor = null;       // AI 진영 (WHITE or BLACK)
 let aiSkillLevel = 10;    // 0~20
 let aiMovetimeMs = 2000;  // 수당 계산 시간(ms), 난이도별 효율 조절용
 let aiGameThinking = false;  // AI가 수 계산 중이면 true → 무르기 차단용
+let aiLastActivityAt = 0;    // AI 대전 마지막 활동 시각 (30분 idle → 퇴장)
+let aiIdleCheckInterval = null;
+let aiLastUndoAt = 0;        // Undo 1초 쿨다운용
+let aiEvalRequestFen = null; // 형세 판단 FEN 경쟁 상태 체크용
 
 // ============================================
 // 3. Room ID Storage (재접속 지원)

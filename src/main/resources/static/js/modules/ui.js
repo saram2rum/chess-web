@@ -321,6 +321,8 @@ function returnToLobby() {
         stopTimerCountdown();
         currentTurn = 'WHITE';
         isGameRunning = false;
+        evalBarEnabled = false;
+        currentMoveSequence = 0;
         selectedSquare = null;
         
         // 게임 영역 숨기기
@@ -329,7 +331,10 @@ function returnToLobby() {
             gameArea.classList.add('hidden');
         }
         const boardContainer = document.getElementById('board-container');
-        if (boardContainer) boardContainer.classList.remove('flipped');
+        if (boardContainer) {
+            boardContainer.classList.remove('flipped');
+            boardContainer.classList.remove('eval-enabled');
+        }
         
         // 게임 오버 모달 닫기
         const gameOverModal = document.getElementById('game-over-modal');

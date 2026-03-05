@@ -2,8 +2,9 @@
 
 ## 개요
 
-- **프로덕션 (EC2 + Nginx)**: Nginx가 `/ai/*` → 8000, 나머지 → 8080으로 라우팅
-- **로컬 개발 (Mac, Nginx 없음)**: Spring이 `/ai/*`를 받아 FastAPI(8000)로 프록시
+- **프로덕션 (EC2 + Nginx)**: Nginx가 `/ai/*` → 8080(Spring), 나머지 → 8080으로 라우팅  
+  → Spring이 FastAPI(8000)로 프록시 (API Gateway 패턴)
+- **로컬 개발 (Mac, Nginx 없음)**: 동일. Spring이 `/ai/*`를 받아 FastAPI(8000)로 프록시
 
 ---
 
@@ -13,14 +14,14 @@
 사용자 요청
     ↓
 Nginx (80/443)
-    ├─ /ai/*        → localhost:8000 (FastAPI)
+    ├─ /ai/*        → localhost:8080 (Spring) → FastAPI(8000) 프록시
     ├─ /ws-chess    → localhost:8080 (Spring WebSocket)
     └─ /*           → localhost:8080 (Spring)
 ```
 
 **프론트엔드 호출**: 항상 상대 경로 사용
-- `/ai/get-move` (POST)
-- Nginx가 자동으로 8000으로 라우팅
+- `/ai/get-move` (POST), `/ai/evaluate` (GET)
+- 모든 AI 트래픽이 Spring을 거침 (Token Bucket/적응형 스케줄링 예정)
 
 ---
 
@@ -59,7 +60,7 @@ FastAPI (8000)
 | 환경 | 요청 대상 | 실제 처리 |
 |------|-----------|-----------|
 | 로컬 | localhost:8080/ai/get-move | Spring → FastAPI(8000) 프록시 |
-| 프로덕션 | chessez.com/ai/get-move | Nginx → FastAPI(8000) |
+| 프로덕션 | chessez.com/ai/get-move | Nginx → Spring → FastAPI(8000) 프록시 |
 
 ```javascript
 // 프론트엔드 (Vanilla JS)

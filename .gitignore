@@ -2,6 +2,7 @@ HELP.md
 .gradle
 .gradle/
 build/
+build 2/
 venv/
 
 # AWS EC2 키 파일 (절대 GitHub에 올리지 않음)

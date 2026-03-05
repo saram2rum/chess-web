@@ -6,6 +6,106 @@
 // ============================================
 
 const MSG_AI_SERVER_BUSY = 'The AI server is currently busy and unable to accept new battles.';
+const AI_IDLE_MINUTES = 30;
+const MSG_AI_IDLE = 'You have been disconnected due to inactivity.';
+const EVAL_SEARCHTIME_MS = 500;  // 논문: 형세분석 품질(movetime) 실험용
+
+function touchAIActivity() {
+    if (typeof aiLastActivityAt !== 'undefined') aiLastActivityAt = Date.now();
+}
+
+function startAIIdleCheck() {
+    if (aiIdleCheckInterval) clearInterval(aiIdleCheckInterval);
+    touchAIActivity();
+    aiIdleCheckInterval = setInterval(() => {
+        if (!isAIMode) return;
+        const idleMs = Date.now() - aiLastActivityAt;
+        if (idleMs > AI_IDLE_MINUTES * 60 * 1000) {
+            if (aiIdleCheckInterval) {
+                clearInterval(aiIdleCheckInterval);
+                aiIdleCheckInterval = null;
+            }
+            exitAIToHome();
+            alert(MSG_AI_IDLE);
+        }
+    }, 60_000); // 1분마다 체크
+}
+
+/** centipawn → 바 위치 0~100% (백 + / 흑 -) */
+function centipawnToBarPercent(cp) {
+    if (typeof cp !== 'number') return 50;
+    const clamped = Math.max(-400, Math.min(400, cp));
+    return 50 + (clamped / 8);  // ±400 → 0~100
+}
+
+function formatEvalValue(data) {
+    if (!data) return '0.0';
+    if (data.type === 'mate') {
+        return 'M' + Math.abs(data.value || 0);
+    }
+    const cp = data.value || 0;
+    return (Math.abs(cp) / 100).toFixed(1);  // 부호 없이 수치만 (유리한 쪽 극단에 있으므로)
+}
+
+/** FEN에서 턴 추출 (w=백, b=흑) */
+function getTurnFromFen(fen) {
+    if (!fen || typeof fen !== 'string') return 'w';
+    const parts = fen.trim().split(/\s+/);
+    return (parts[1] === 'b') ? 'b' : 'w';
+}
+
+function updateEvalBar(data) {
+    if (!data || (!isAIMode && !evalBarEnabled)) return;
+    let cp = 0;
+    if (data.type === 'cp') {
+        cp = data.value || 0;
+    } else if (data.type === 'mate') {
+        cp = (data.value > 0 ? 400 : -400);
+    }
+    // Stockfish turn perspective: + = 턴인 쪽 유리. 항상 백 기준으로 표시하려면 흑 턴일 때 부호 반전
+    const turn = getTurnFromFen(data.fen);
+    if (turn === 'b') cp = -cp;
+    const wrapper = document.getElementById('eval-bar-wrapper');
+    const track = document.getElementById('eval-bar-track');
+    const valueEl = document.getElementById('eval-value');
+    if (!wrapper || !track) return;
+    const pct = Math.max(0, Math.min(100, centipawnToBarPercent(cp)));
+    const splitPct = (myColor === 'WHITE' ? 100 - pct : pct) + '%';
+    // 유저 색에 맞게 바 배치: 백=유저면 흰색을 하단(유저쪽)에
+    track.classList.toggle('user-white', myColor === 'WHITE');
+    track.style.setProperty('--eval-split', splitPct);
+    // 수치: 유리한 쪽 극단에 배치 (0.0도 한쪽이 미세 유리하므로 극단에 표기)
+    const valueEdge = cp >= 0 ? (myColor === 'WHITE' ? 'bottom' : 'top')   // 백 유리 또는 동점
+        : (myColor === 'WHITE' ? 'top' : 'bottom');                        // 흑 유리
+    wrapper.dataset.evalEdge = valueEdge;
+    // cp는 바 위치용 값. 표시용에는 원본 data 사용 (mate일 때 value가 2 등 실제 수)
+    if (valueEl) {
+        const displayData = data.type === 'mate'
+            ? { type: 'mate', value: (turn === 'b' ? -data.value : data.value) }
+            : { type: 'cp', value: cp };
+        valueEl.textContent = formatEvalValue(displayData);
+    }
+}
+
+/** 탐색 기반 형세 평가만 사용 (static 제거). 1v1/AI 공통 */
+function requestPositionEvaluation(fen) {
+    if ((!isAIMode && !evalBarEnabled) || !fen) return;
+    aiEvalRequestFen = fen;
+
+    fetch('/ai/evaluate?fen=' + encodeURIComponent(fen) + '&searchtime=' + EVAL_SEARCHTIME_MS)
+        .then(r => r.json())
+        .then(data => {
+            if (aiEvalRequestFen === fen) updateEvalBar(data);
+        })
+        .catch(() => {});
+}
+
+function stopAIIdleCheck() {
+    if (aiIdleCheckInterval) {
+        clearInterval(aiIdleCheckInterval);
+        aiIdleCheckInterval = null;
+    }
+}
 
 /**
  * AI 대전 시작 전 서버 수용 여부 확인 (최대 3개 슬롯 제한)
@@ -81,20 +181,30 @@ function startAIMode() {
     updateUndoButtonState();
     if (typeof updateCapturedPiecesUI === 'function') updateCapturedPiecesUI();
 
+    if (myColor === 'WHITE') {
+        requestPositionEvaluation(chessGame.fen());
+    }
     if (myColor === 'BLACK') {
         currentTurn = 'WHITE';
         requestAndApplyAIMove();
     }
+
+    startAIIdleCheck();
 }
+
+const UNDO_COOLDOWN_MS = 1000;
 
 /**
  * 무르기 (Takeback) - AI 대전 전용
  * 두 수 무르기: AI 수 + 내 수 → 내 턴으로 복귀
  * 예외: history 1개일 때(백 첫 수만 둠 / 흑이 AI 첫 수만 있음) → 1번만 undo
+ * 1초 쿨다운: 연타로 인한 부하 방지
  */
 function undoAIMove() {
     if (!isAIMode || !chessGame) return;
     if (aiGameThinking) return;  // AI 계산 중에는 무시
+    if (Date.now() - aiLastUndoAt < UNDO_COOLDOWN_MS) return;  // 1초 쿨다운
+    touchAIActivity();
 
     const hist = chessGame.history();
     if (hist.length === 0) return;
@@ -116,6 +226,7 @@ function undoAIMove() {
 
     currentTurn = myColor;
     updateTurnDisplay();
+    aiLastUndoAt = Date.now();
     updateUndoButtonState();
     if (typeof updateCapturedPiecesUI === 'function') updateCapturedPiecesUI();
 
@@ -124,10 +235,14 @@ function undoAIMove() {
         currentTurn = 'WHITE';
         updateTurnDisplay();
         requestAndApplyAIMove();
+    } else {
+        requestPositionEvaluation(chessGame.fen());
     }
+    // 1초 후 버튼 재활성화 (쿨다운 종료)
+    setTimeout(updateUndoButtonState, UNDO_COOLDOWN_MS);
 }
 
-/** 무르기 버튼 활성/비활성 (AI 계산 중, 초기 상태 시 비활성) */
+/** 무르기 버튼 활성/비활성 (AI 계산 중, 초기 상태, 1초 쿨다운 시 비활성) */
 function updateUndoButtonState() {
     const btn = document.getElementById('ai-undo-btn');
     if (!btn) return;
@@ -139,11 +254,18 @@ function updateUndoButtonState() {
         btn.disabled = true;
         return;
     }
+    if (Date.now() - aiLastUndoAt < UNDO_COOLDOWN_MS) {
+        btn.disabled = true;
+        return;
+    }
     const hist = chessGame?.history?.() ?? [];
     btn.disabled = hist.length === 0;
 }
 
 function exitAIToHome() {
+    stopAIIdleCheck();
+    aiLastUndoAt = 0;
+    aiEvalRequestFen = null;
     isAIMode = false;
     aiColor = null;
     aiSkillLevel = 10;
@@ -171,6 +293,7 @@ function exitAIToHome() {
 
 function handleAIUserMove(source, target, promotion) {
     if (!isAIMode || currentTurn !== myColor) return;
+    touchAIActivity();
 
     const promotionLetter = promotion ? String(promotion.charAt(0)).toLowerCase() : undefined;
     const opt = { from: source, to: target };
@@ -190,6 +313,7 @@ function handleAIUserMove(source, target, promotion) {
     currentTurn = aiColor;
     updateTurnDisplay();
     updateUndoButtonState();
+    requestPositionEvaluation(chessGame.fen());
     requestAndApplyAIMove();
 }
 
@@ -236,6 +360,7 @@ async function requestAndApplyAIMove() {
 
 function applyAIMove(uciMove) {
     if (!uciMove || uciMove.length < 4) return;
+    touchAIActivity();
 
     const from = uciMove.slice(0, 2);
     const to = uciMove.slice(2, 4);
@@ -264,6 +389,7 @@ function applyAIMove(uciMove) {
     updateTurnDisplay();
     updateUndoButtonState();
     if (typeof updateCapturedPiecesUI === 'function') updateCapturedPiecesUI();
+    requestPositionEvaluation(chessGame.fen());
 }
 
 function findAICheckedKing() {

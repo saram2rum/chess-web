@@ -496,6 +496,60 @@ body {
 .ai-undo-btn:hover:not(:disabled) { background: rgba(0,0,0,0.7); color: var(--text-primary); }
 .ai-undo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* 형세 판단 바 (AI 모드) - 보드 왼쪽 세로 배치 */
+.board-eval-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}
+.board-container:not(.ai-mode) .board-eval-row { flex-direction: row; }
+.eval-bar-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+}
+.eval-bar-container.hidden { display: none !important; }
+.board-container.ai-mode .eval-bar-container,
+.board-container.eval-enabled .eval-bar-container { display: flex !important; }
+.board-container:not(.ai-mode):not(.eval-enabled) .eval-bar-container { display: none !important; }
+.eval-bar-wrapper {
+    display: flex;
+}
+.eval-bar-track {
+    width: 16px;
+    height: 360px;
+    position: relative;
+    --eval-split: 50%;
+    background: linear-gradient(to bottom, #fff 0%, #fff var(--eval-split), #333 var(--eval-split), #333 100%);
+    border-radius: 8px;
+    position: relative;
+}
+/* 유저가 백이면: 유저(흰색) 쪽을 하단에 배치 */
+.eval-bar-track.user-white {
+    background: linear-gradient(to bottom, #333 0%, #333 var(--eval-split), #fff var(--eval-split), #fff 100%);
+}
+.eval-marker {
+    display: none;  /* 흑/백 경계가 자연스러운 구분선으로 충분 */
+}
+.eval-value {
+    position: absolute;
+    right: 100%;
+    margin-right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 28px;
+    text-align: right;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.eval-bar-wrapper[data-eval-edge="top"] .eval-value { top: 0; transform: translateY(0); }
+.eval-bar-wrapper[data-eval-edge="bottom"] .eval-value { top: auto; bottom: 0; transform: translateY(0); }
+
 .board-container.flipped #board-frame { transform: rotate(180deg); }
 .board-container.flipped .piece-img { transform: rotate(180deg); }
 .board-container.flipped .my-piece:hover .piece-img { transform: rotate(180deg); }

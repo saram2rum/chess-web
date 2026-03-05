@@ -44,7 +44,8 @@ function generateUUID() {
 function initializeLobbyButtons() {
     document.getElementById('create-game-btn').addEventListener('click', createGame);
     document.getElementById('join-game-btn').addEventListener('click', joinGameFromInput);
-    document.getElementById('play-vs-ai-btn').addEventListener('click', openAISettingsModal);
+    const playVsAiBtn = document.getElementById('play-vs-ai-btn');
+    if (playVsAiBtn) playVsAiBtn.addEventListener('click', openAISettingsModal);
     document.getElementById('ai-start-btn').addEventListener('click', handleAIStartClick);
     document.getElementById('ai-cancel-btn').addEventListener('click', closeAISettingsModal);
     
@@ -116,6 +117,11 @@ function handleReconnect(gameState) {
     if (myColor === 'BLACK') {
         boardContainer.classList.add('flipped');
     }
+    if (boardContainer) {
+        boardContainer.classList.add('eval-enabled');
+    }
+    evalBarEnabled = true;
+    currentMoveSequence = typeof gameState?.moveSequence === 'number' ? gameState.moveSequence : 0;
     
     // 8. 턴 표시 업데이트
     updateTurnDisplay();
@@ -130,11 +136,18 @@ function handleReconnect(gameState) {
     }
     if (typeof updateCapturedPiecesUI === 'function') updateCapturedPiecesUI();
     
+    // 형세분석 바 초기 요청
+    if (typeof requestPositionEvaluation === 'function' && chessGame && typeof chessGame.fen === 'function') {
+        requestPositionEvaluation(chessGame.fen());
+    }
+    
     console.log('✅ 재접속 완료 - 게임 상태 복원됨');
     alert('🔄 Reconnected to the game!');
 }
 
-function startGameMode(hostColor, guestColor) {
+function startGameMode(startInfo) {
+    const hostColor = startInfo?.hostColor || 'WHITE';
+    const guestColor = startInfo?.guestColor || 'BLACK';
     // 🆕 로딩 오버레이 숨김
     const overlay = document.getElementById('reconnect-overlay');
     if (overlay) overlay.classList.add('hidden');
@@ -156,6 +169,8 @@ function startGameMode(hostColor, guestColor) {
     
     // 🔥 [핵심] 게임 실행 상태 설정 (로비 화면 복귀 방지)
     isGameRunning = true;
+    evalBarEnabled = true;  // 1v1 형세분석 바 표시
+    currentMoveSequence = 0;  // eval 순서 보장
     
     console.log('   → Host Color:', hostColor);
     console.log('   → Guest Color:', guestColor);
@@ -213,10 +228,13 @@ function startGameMode(hostColor, guestColor) {
     } else {
         boardContainer.classList.remove('flipped');
     }
+    boardContainer.classList.add('eval-enabled');
     
     // 5. 턴 표시 및 완료 로그
     updateTurnDisplay();
     if (typeof updateCapturedPiecesUI === 'function') updateCapturedPiecesUI();
+    
+    // 6. 초기 형세분석: /topic/eval 비동기 수신 (broadcastInitialEvalAsync)
     console.log('✅ 게임 화면 전환 완료');
 }
 
@@ -414,6 +432,9 @@ function handleMoveResult(result) {
         highlightCheck(null);
     }
     
+    // moveSequence 갱신 (eval 순서 보장)
+    if (typeof result?.moveSequence === 'number') currentMoveSequence = result.moveSequence;
+    
     if (result.isGameOver) {
         console.log("🏁 게임 종료! 타이머 정지");
         stopTimerCountdown();
@@ -467,12 +488,16 @@ function playLowTimeSound() {
     } catch (e) {}
 }
 
+/** 타이머 최대값 (밀리초, 클라이언트 조작/오버플로우 방지) = 24시간 */
+const TIMER_MAX_MS = 24 * 60 * 60 * 1000;
+
 /**
  * ⏱️ 타이머 업데이트 (서버에서 받은 값)
  */
 function updateTimer(timerData) {
-    whiteTime = timerData.whiteTime;
-    blackTime = timerData.blackTime;
+    const clamp = (v) => Math.max(0, Math.min(TIMER_MAX_MS, Number(v) || 0));
+    whiteTime = clamp(timerData.whiteTime);
+    blackTime = clamp(timerData.blackTime);
     
     console.log('⏱️ [TIMER] 업데이트:', {
         white: formatTime(whiteTime),
@@ -488,8 +513,8 @@ function updateTimer(timerData) {
  */
 function initializeTimerFromLobby() {
     const timeLimitInput = document.getElementById('time-limit');
-    const timeLimit = timeLimitInput ? parseInt(timeLimitInput.value, 10) : 10;
-    const timeMs = Math.max(1, timeLimit) * 60 * 1000;  // 분 → 밀리초
+    const timeLimit = Math.max(1, Math.min(60, timeLimitInput ? parseInt(timeLimitInput.value, 10) : 10));
+    const timeMs = Math.min(TIMER_MAX_MS, timeLimit * 60 * 1000);
     whiteTime = timeMs;
     blackTime = timeMs;
     if (typeof displayTimer === 'function') displayTimer();

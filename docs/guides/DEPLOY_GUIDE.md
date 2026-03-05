@@ -135,8 +135,7 @@ ps aux | grep -E 'java|uvicorn'
 sudo netstat -tlnp | grep -E '8080|8000'
 
 # AI 서버 헬스체크 (EC2 또는 로컬에서)
-curl http://3.36.158.65/ai/   # Nginx 통해 FastAPI(8000)로 프록시, {"status":"ok"} 응답 확인
-# 또는 EC2 내부: curl http://localhost:8000/
+curl http://3.36.158.65/ai/   # Nginx → Spring → FastAPI(8000), {"status":"ok"} 응답 확인
 
 # Spring 헬스체크
 curl http://3.36.158.65/   # HTML 응답
@@ -150,5 +149,5 @@ curl http://3.36.158.65/   # HTML 응답
 |------|------|
 | Spring | 8080 포트, `java -jar chess-game.jar` |
 | FastAPI (AI) | 8000 포트, `uvicorn main:app --host 0.0.0.0 --port 8000` |
-| Nginx | 80번 수신, `/ai/*` → 8000, 나머지 → 8080 |
+| Nginx | 80번 수신, 전부 8080 → Spring이 /ai/*를 FastAPI(8000)로 프록시 |
 | Stockfish | `apt-get install stockfish`, 경로: `/usr/games/stockfish` 또는 `/usr/bin/stockfish` |

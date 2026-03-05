@@ -33,7 +33,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws-chess")
                 .setHandshakeHandler(new CustomHandshakeHandler())
                 .addInterceptors(new UserHandshakeInterceptor())
-                .setAllowedOriginPatterns("*")
+                .setAllowedOriginPatterns(
+                        "https://chessez.com",
+                        "http://chessez.com",
+                        "http://localhost:8080",
+                        "http://127.0.0.1:8080"
+                )
                 .withSockJS();
     }
 }

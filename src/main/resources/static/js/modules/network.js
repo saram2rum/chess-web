@@ -99,6 +99,12 @@ function connectWebSocket() {
         // 방 생성 응답 구독 (/user/queue/create + /topic/create)
         const handleCreateResponse = (message) => {
             const response = JSON.parse(message.body);
+            if (!response.roomId) {
+                showLobbyStatus(response.message || 'Could not create room.', 'error');
+                const createBtn = document.getElementById('create-game-btn');
+                if (createBtn) createBtn.disabled = false;
+                return;
+            }
             roomId = response.roomId;
             console.log('✅ 방 생성됨:', roomId);
             justCreatedRoom = true;
@@ -189,6 +195,26 @@ function joinLobby(targetRoomId) {
             }
             return;
         }
+        if (code === 'OPPONENT_LEFT') {
+            if (typeof stopTimerCountdown === 'function') stopTimerCountdown();
+            clearCurrentRoomId();
+            goToHomeScreen();
+            if (typeof showLobbyStatus === 'function') {
+                showLobbyStatus('Opponent has left.', 'error');
+            }
+            alert('Opponent has left.');
+            return;
+        }
+        if (code === 'INACTIVITY_KICK') {
+            if (typeof stopTimerCountdown === 'function') stopTimerCountdown();
+            clearCurrentRoomId();
+            goToHomeScreen();
+            if (typeof showLobbyStatus === 'function') {
+                showLobbyStatus(msg || 'You have been disconnected due to inactivity.', 'error');
+            }
+            alert(msg || 'You have been disconnected due to inactivity.');
+            return;
+        }
         if (typeof showLobbyStatus === 'function') showLobbyStatus(msg || 'Error', 'error');
     });
     console.log('✅ [JOIN_LOBBY] 구독 완료: /topic/errors/' + roomId);
@@ -197,7 +223,7 @@ function joinLobby(targetRoomId) {
     stompClient.subscribe('/topic/game/start/' + roomId, (message) => {
         const startInfo = JSON.parse(message.body);
         console.log('🎮 [GAME_START] 게임 시작 알림 수신!', startInfo);
-        startGameMode(startInfo.hostColor, startInfo.guestColor);
+        startGameMode(startInfo);
         // ⏱️ 서버 초기 타이머 값 적용 후 카운트다운 시작
         if (startInfo.whiteTime != null && startInfo.blackTime != null) {
             updateTimer({ whiteTime: startInfo.whiteTime, blackTime: startInfo.blackTime });
@@ -213,6 +239,17 @@ function joinLobby(targetRoomId) {
         handleMoveResult(moveResult);
     });
     console.log('✅ [JOIN_LOBBY] 구독 완료: /topic/game/' + roomId);
+    
+    // 형세분석 비동기 구독: moveSequence로 오래된 eval 덮어쓰기 방지
+    stompClient.subscribe('/topic/eval/' + roomId, (message) => {
+        const evalData = JSON.parse(message.body);
+        const received = typeof evalData?.moveSequence === 'number' ? evalData.moveSequence : -1;
+        if (received < currentMoveSequence) return;  // 오래된 eval 무시
+        if (typeof updateEvalBar === 'function' && evalData?.fen && evalData?.type != null && evalData?.value != null) {
+            updateEvalBar({ type: evalData.type, value: evalData.value, fen: evalData.fen });
+        }
+    });
+    console.log('✅ [JOIN_LOBBY] 구독 완료: /topic/eval/' + roomId);
     
     // 이동 가능 위치 구독 (방 전용)
     stompClient.subscribe('/topic/movable/' + roomId, (message) => {

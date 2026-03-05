@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
     <title>Chessez</title>
@@ -22,7 +22,7 @@
         </div>
         
         <button id="create-game-btn" class="lobby-btn primary-btn">Create Game</button>
-        <button id="play-vs-ai-btn" class="lobby-btn ai-primary-btn">Play vs AI</button>
+        <button th:if="${aiMatchEnabled}" id="play-vs-ai-btn" class="lobby-btn ai-primary-btn">Play vs AI</button>
         
         <div class="join-row">
             <input 
@@ -165,11 +165,22 @@
         </div>
     </div>
     
-    <!-- 체스판 -->
-    <div id="board-frame" class="turn-white">
-        <table class="chess-board" id="chess-board" cellspacing="0" cellpadding="0">
-            <!-- 동적 생성 -->
-        </table>
+    <!-- 체스판 + 형세 바 (AI 모드: 바가 왼쪽) -->
+    <div class="board-eval-row">
+        <!-- 형세 판단 바 (AI 모드 전용, 왼쪽 세로) -->
+        <div id="eval-bar-container" class="eval-bar-container">
+            <div id="eval-bar-wrapper" class="eval-bar-wrapper">
+                <div id="eval-bar-track" class="eval-bar-track">
+                    <div class="eval-marker" id="eval-marker"></div>
+                    <span class="eval-value" id="eval-value">0.0</span>
+                </div>
+            </div>
+        </div>
+        <div id="board-frame" class="turn-white">
+            <table class="chess-board" id="chess-board" cellspacing="0" cellpadding="0">
+                <!-- 동적 생성 -->
+            </table>
+        </div>
     </div>
     
     <!-- 내 영역: 잡은 기물 + 점수 + 타이머/Undo (가로 1줄) -->

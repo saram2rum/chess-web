@@ -29,18 +29,28 @@ public class ChessGameController {
     public void createGame(Principal principal) {
         String userId = principal != null ? principal.getName() : null;
         System.out.println("📥 방 생성 요청 수신 - 유저: " + userId);
-        
-        String roomId = chessService.createGame();
-        System.out.println("✅ 방 생성 완료 - Room ID: " + roomId);
-        
-        CreateGameResponseDTO response = new CreateGameResponseDTO(roomId, "Game room created.");
-        
-        if (userId != null && !userId.isEmpty()) {
-            messagingTemplate.convertAndSendToUser(userId, "/queue/create", response);
-            System.out.println("📤 방 생성 응답: /user/" + userId + "/queue/create");
-        } else {
-            messagingTemplate.convertAndSend("/topic/create", response);
-            System.out.println("📤 방 생성 응답 (fallback): /topic/create");
+
+        try {
+            String roomId = chessService.createGame();
+            System.out.println("✅ 방 생성 완료 - Room ID: " + roomId);
+
+            CreateGameResponseDTO response = new CreateGameResponseDTO(roomId, "Game room created.");
+
+            if (userId != null && !userId.isEmpty()) {
+                messagingTemplate.convertAndSendToUser(userId, "/queue/create", response);
+                System.out.println("📤 방 생성 응답: /user/" + userId + "/queue/create");
+            } else {
+                messagingTemplate.convertAndSend("/topic/create", response);
+                System.out.println("📤 방 생성 응답 (fallback): /topic/create");
+            }
+        } catch (IllegalStateException e) {
+            System.out.println("❌ 방 생성 실패 (제한 도달): " + e.getMessage());
+            CreateGameResponseDTO errorResponse = new CreateGameResponseDTO(null, e.getMessage());
+            if (userId != null && !userId.isEmpty()) {
+                messagingTemplate.convertAndSendToUser(userId, "/queue/create", errorResponse);
+            } else {
+                messagingTemplate.convertAndSend("/topic/create", errorResponse);
+            }
         }
     }
 
@@ -52,12 +62,14 @@ public class ChessGameController {
     @MessageMapping("/lobby/join/{roomId}")
     public void joinLobby(
             @DestinationVariable String roomId,
-            @Header("simpSessionId") String sessionId
+            @Header("simpSessionId") String sessionId,
+            Principal principal
     ) {
+        String userId = principal != null ? principal.getName() : null;
         System.out.println("📥 로비 입장 요청 - 방: " + roomId + ", 세션: " + sessionId);
         
         try {
-            String role = chessService.joinGame(roomId, sessionId);
+            String role = chessService.joinGame(roomId, sessionId, userId);
             System.out.println("✅ 로비 입장 성공 - 역할: " + role);
             
             // 로비 상태 전송
@@ -70,6 +82,20 @@ public class ChessGameController {
             ErrorDTO error = new ErrorDTO("LOBBY_JOIN_FAILED", e.getMessage());
             messagingTemplate.convertAndSend("/topic/errors/" + roomId, error);
         }
+    }
+
+    /**
+     * 방 나가기 (Leave 버튼)
+     * 클라이언트: /app/lobby/leave/{roomId}
+     * 응답: /topic/errors/{roomId} (OPPONENT_LEFT) → 상대에게 알림 후 방 삭제
+     */
+    @MessageMapping("/lobby/leave/{roomId}")
+    public void leaveLobby(
+            @DestinationVariable String roomId,
+            @Header("simpSessionId") String sessionId
+    ) {
+        System.out.println("📤 방 나가기 요청 - 방: " + roomId);
+        chessService.leaveRoom(roomId, sessionId);
     }
 
     /**
@@ -136,10 +162,11 @@ public class ChessGameController {
             chessService.startGame(roomId, sessionId);
             System.out.println("✅ 게임 시작 완료");
             
-            // 게임 시작 알림 전송
+            // 게임 시작 알림 전송 (형세분석 없이 즉시)
             StartGameDTO startInfo = chessService.getStartGameInfo(roomId);
             System.out.println("📤 게임 시작 알림: /topic/game/start/" + roomId);
             messagingTemplate.convertAndSend("/topic/game/start/" + roomId, startInfo);
+            chessService.broadcastInitialEvalAsync(roomId);
             
         } catch (Exception e) {
             System.out.println("❌ 게임 시작 실패: " + e.getMessage());
@@ -162,6 +189,9 @@ public class ChessGameController {
         try {
             MoveResultDTO result = chessService.move(roomId, sessionId, move.source(), move.target(), move.promotion());
             messagingTemplate.convertAndSend("/topic/game/" + roomId, result);
+            if (!result.isGameOver() && result.fen() != null && result.moveSequence() != null) {
+                chessService.broadcastEvalAsync(roomId, result.fen(), result.moveSequence());
+            }
         } catch (Exception e) {
             ErrorDTO error = new ErrorDTO("MOVE_FAILED", e.getMessage());
             messagingTemplate.convertAndSend("/topic/errors/" + roomId, error);

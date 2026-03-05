@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!-- 메트릭 전용 CSV 파일 (엑셀 분석용) - application.properties의 metrics.log.path 사용 -->
+    <springProperty name="METRICS_LOG_PATH" source="metrics.log.path" defaultValue="logs/metrics.csv"/>
+
+    <appender name="METRICS_FILE" class="ch.qos.logback.core.FileAppender">
+        <file>${METRICS_LOG_PATH}</file>
+        <encoder>
+            <pattern>%msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- MetricLoggingService 로그만 별도 파일 + 콘솔 -->
+    <logger name="chess.service.MetricLoggingService" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="METRICS_FILE"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

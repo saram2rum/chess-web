@@ -5,6 +5,7 @@ import chess.domain.piece.Type;
 import chess.domain.piece.Piece;
 import chess.domain.board.Position;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,9 @@ import java.util.stream.Collectors;
 @Controller
 public class ChessController {
 
+    @Value("${app.feature.ai-match.enabled:true}")
+    private boolean aiMatchEnabled;
+
     private ChessGame chessGame; // final 제거 (재시작을 위해)
 
     public ChessController() {
@@ -31,6 +35,7 @@ public class ChessController {
     public String index(Model model) {
         model.addAttribute("board", chessGame.getBoard());
         model.addAttribute("turn", chessGame.getCurrentTurn());
+        model.addAttribute("aiMatchEnabled", aiMatchEnabled);
         return "index";
     }
 

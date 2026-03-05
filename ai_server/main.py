@@ -16,7 +16,8 @@ from pydantic import BaseModel
 from stockfish import Stockfish
 
 # --- Resource limits (AWS Free Tier optimization) ---
-MAX_AI_SLOTS = 3
+# 로컬 개발 시 여러 탭/세션에서 슬롯 점유 가능 → 5로 완화
+MAX_AI_SLOTS = 5
 MAX_MOVETIME_MS = 800
 MAX_DEPTH = 12
 MSG_SERVER_BUSY = "The AI server is currently busy and unable to accept new battles."
@@ -62,6 +63,8 @@ stockfish: Stockfish | None = None
 # 동시 AI 대전 슬롯 제한 (세마포어)
 _ai_slot_lock = asyncio.Lock()
 _active_ai_count = 0
+# Stockfish 동시 접근 방지 (get-move와 evaluate가 같은 인스턴스 공유)
+_sf_lock = asyncio.Lock()
 
 
 def get_stockfish() -> Stockfish:
@@ -182,6 +185,29 @@ async def get_best_move(req: BestMoveRequest):
     finally:
         async with _ai_slot_lock:
             _active_ai_count -= 1
+
+
+# --- 형세 판단 (Position Evaluation) ---
+EVAL_SEARCHTIME_MS = 200  # 실시간 응답 목표
+
+
+@app.get("/ai/evaluate")
+async def evaluate_position(fen: str, searchtime: int = EVAL_SEARCHTIME_MS):
+    """
+    탐색 기반 형세 평가 (get_evaluation).
+    searchtime(ms)만큼 분석 후 centipawn 또는 mate 반환.
+    """
+    searchtime = max(50, min(500, searchtime))
+    async with _sf_lock:
+        try:
+            sf = get_stockfish()
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e))
+        if not sf.is_fen_valid(fen):
+            raise HTTPException(status_code=400, detail="Invalid FEN")
+        sf.set_fen_position(fen)
+        ev = sf.get_evaluation(searchtime=searchtime)
+        return {"type": ev["type"], "value": ev["value"], "fen": fen}
 
 
 if __name__ == "__main__":
